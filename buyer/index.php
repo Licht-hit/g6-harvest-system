@@ -2,8 +2,51 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_role('buyer');
 
-$vegetables = $pdo->query(
-    'SELECT
+$search = $_GET['search'] ?? '';
+if (!is_string($search)) {
+    $search = '';
+}
+$search = trim($search);
+
+$sort = $_GET['sort'] ?? 'name_asc';
+if (!is_string($sort)) {
+    $sort = 'name_asc';
+}
+$availability = $_GET['availability'] ?? 'all';
+if (!is_string($availability)) {
+    $availability = 'all';
+}
+
+// Only these fixed SQL fragments can be used for sorting.
+$sortOptions = [
+    'name_asc' => 'v.name ASC',
+    'price_asc' => 'v.price ASC, v.name ASC',
+    'price_desc' => 'v.price DESC, v.name ASC',
+];
+if (!isset($sortOptions[$sort])) {
+    $sort = 'name_asc';
+}
+if (!in_array($availability, ['all', 'in_stock'], true)) {
+    $availability = 'all';
+}
+
+$conditions = ['v.active = 1'];
+$parameters = [];
+
+if ($search !== '') {
+    $conditions[] = "(v.name LIKE ? OR COALESCE(v.variety, '') LIKE ?
+        OR COALESCE(v.description, '') LIKE ?)";
+    $searchTerm = '%' . $search . '%';
+    $parameters[] = $searchTerm;
+    $parameters[] = $searchTerm;
+    $parameters[] = $searchTerm;
+}
+
+if ($availability === 'in_stock') {
+    $conditions[] = 'COALESCE(i.quantity, 0) > 0';
+}
+
+$query = 'SELECT
         v.id,
         v.name,
         v.variety,
@@ -13,9 +56,11 @@ $vegetables = $pdo->query(
         COALESCE(i.quantity, 0) AS stock
      FROM vegetables AS v
      LEFT JOIN inventory AS i ON i.vegetable_id = v.id
-     WHERE v.active = 1
-     ORDER BY v.name'
-)->fetchAll();
+     WHERE ' . implode(' AND ', $conditions)
+    . ' ORDER BY ' . $sortOptions[$sort];
+$statement = $pdo->prepare($query);
+$statement->execute($parameters);
+$vegetables = $statement->fetchAll();
 
 $pageTitle = 'Farm shop';
 require __DIR__ . '/../includes/header.php';
@@ -30,33 +75,84 @@ require __DIR__ . '/../includes/header.php';
     </a>
 </div>
 
+<form class="catalog-filters panel" method="get">
+    <div class="field catalog-search">
+        <label for="search">Search vegetables</label>
+        <input
+            id="search"
+            type="search"
+            name="search"
+            value="<?= h($search) ?>"
+            placeholder="Search by name or description"
+        >
+    </div>
+    <div class="field">
+        <label for="availability">Availability</label>
+        <select id="availability" name="availability">
+            <option value="all" <?= $availability === 'all' ? 'selected' : '' ?>>
+                All products
+            </option>
+            <option value="in_stock" <?= $availability === 'in_stock' ? 'selected' : '' ?>>
+                In stock only
+            </option>
+        </select>
+    </div>
+    <div class="field">
+        <label for="sort">Sort by</label>
+        <select id="sort" name="sort">
+            <option value="name_asc" <?= $sort === 'name_asc' ? 'selected' : '' ?>>
+                Name: A to Z
+            </option>
+            <option value="price_asc" <?= $sort === 'price_asc' ? 'selected' : '' ?>>
+                Price: low to high
+            </option>
+            <option value="price_desc" <?= $sort === 'price_desc' ? 'selected' : '' ?>>
+                Price: high to low
+            </option>
+        </select>
+    </div>
+    <div class="catalog-filter-actions">
+        <button type="submit">Find vegetables</button>
+        <a class="button secondary" href="<?= h(app_url('buyer/index.php')) ?>">Clear</a>
+    </div>
+</form>
+
+<p class="muted catalog-result-count">
+    <?= count($vegetables) ?> product(s) found
+    <?php if ($search !== ''): ?>
+        for “<?= h($search) ?>”
+    <?php endif; ?>
+</p>
+
 <?php if (!$vegetables): ?>
-    <section class="panel empty">There is no produce in the catalog yet.</section>
+    <section class="panel empty">
+        No vegetables match your search. Try another name or clear the filters.
+    </section>
 <?php else: ?>
-    <div class="card-grid">
+    <div class="card-grid catalog-grid">
     <?php foreach ($vegetables as $vegetable): ?>
-        <article class="card">
-            <div class="product-image" aria-hidden="true">✿</div>
-            <h2><?= h($vegetable['name']) ?></h2>
+        <article class="card catalog-card">
+            <div class="product-image catalog-product-image" aria-hidden="true">✿</div>
+            <h2 class="catalog-card-title"><?= h($vegetable['name']) ?></h2>
 
             <?php if ($vegetable['variety']): ?>
                 <p class="muted"><?= h($vegetable['variety']) ?></p>
             <?php endif; ?>
 
-            <p><?= h($vegetable['description'] ?? 'Fresh seasonal produce.') ?></p>
-            <p>
-                <strong><?= money($vegetable['price']) ?></strong>
-                / <?= h($vegetable['unit']) ?>
+            <p class="catalog-description">
+                <?= h($vegetable['description'] ?? 'Fresh seasonal produce.') ?>
             </p>
-            <p class="muted">
+            <p class="catalog-price">
+                <strong><?= money($vegetable['price']) ?></strong>
+                <span>/ <?= h($vegetable['unit']) ?></span>
+            </p>
+            <p class="muted catalog-stock">
                 <?= number_format((float) $vegetable['stock'], 2) ?>
                 <?= h($vegetable['unit']) ?> available
             </p>
-            <p>
-                <a href="<?= h(app_url('buyer/product.php?id=' . (int) $vegetable['id'])) ?>">
-                    Product details
-                </a>
-            </p>
+            <a class="catalog-details" href="<?= h(app_url(
+                'buyer/product.php?id=' . (int) $vegetable['id']
+            )) ?>">View product details</a>
 
             <?php if ((float) $vegetable['stock'] > 0): ?>
                 <form method="post" action="<?= h(app_url('buyer/cart.php')) ?>">
