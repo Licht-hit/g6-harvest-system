@@ -39,6 +39,16 @@ CREATE TABLE IF NOT EXISTS email_verification_tokens (
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+-- Stores one-time, expiring password reset tokens.
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    user_id INT UNSIGNED PRIMARY KEY,
+    token_hash CHAR(64) NOT NULL UNIQUE,
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME NOT NULL,
+    CONSTRAINT fk_password_reset_tokens_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
 -- Stores products that can be planted, harvested, and sold.
 CREATE TABLE IF NOT EXISTS vegetables (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

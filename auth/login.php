@@ -85,6 +85,10 @@ require __DIR__ . '/../includes/header.php';
     </form>
 
     <p class="auth-links">
+        <a href="<?= h(app_url('auth/forgot_password.php')) ?>">Forgot your password?</a>
+    </p>
+
+    <p class="auth-links">
         New buyer?
         <a href="<?= h(app_url('auth/register.php')) ?>">Create an account</a>.
     </p>
