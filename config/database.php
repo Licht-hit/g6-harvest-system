@@ -2,7 +2,7 @@
 
 // Use environment variables for database credentials when they are available.
 $dbHost = getenv('DB_HOST') ?: 'localhost';
-$dbName = getenv('DB_NAME') ?: 'vegetable_system';
+$dbName = getenv('DB_NAME') ?: 'vege';
 $dbUser = getenv('DB_USER') ?: 'root';
 $dbPassword = getenv('DB_PASSWORD') ?: '';
 

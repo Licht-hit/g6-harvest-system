@@ -1,5 +1,5 @@
-CREATE DATABASE IF NOT EXISTS vegetable_system CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE vegetable_system;
+CREATE DATABASE IF NOT EXISTS vege CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE vege;
 
 -- Stores admin, staff, and buyer login accounts.
 CREATE TABLE IF NOT EXISTS users (
